@@ -1,8 +1,11 @@
-import discord
+#libraries to pip install
+import discord #see discord.py for installation
 import asyncio
+from discord.ext import commands
+
 import BotClass as bc
 import Token as Token #this is a separate file contaning the token
-from discord.ext import commands
+
 
 client = commands.Bot(command_prefix = '+')
 bot_obj = None
@@ -21,11 +24,9 @@ async def connect(ctx):
             name = ctx.message.author
             bot_obj = bc.Sbb(name)
 
-
         channel = ctx.message.author.voice.channel
         if not bot_obj.is_connected:
             connected_to = await channel.connect()
-
             bot_obj.is_connected = True
             bot_obj.channel = connected_to
             bot_obj.voice_channel = channel
@@ -53,21 +54,25 @@ async def disconnect(ctx):
 @client.command(pass_context=True)
 async def play(ctx, file_name):
     global bot_obj
+    filename = file_name + ".mp3"
     calling_user = ctx.message.author
     voice_channel = calling_user.voice.channel
     if voice_channel != None:
         await connect(ctx)
         if not bot_obj.is_playing:
-            bot_obj.queue.append(file_name)
+            bot_obj.queue.append(filename)
             bot_obj.is_playing = True
-            sek_counter = 0
-            duration = 4 #TODO find a way to get duration of mp3 files
 
             while (True):
                 bot_obj.channel.play(discord.FFmpegPCMAudio('./audio_files/' + bot_obj.queue[0]))
-                while not sek_counter >= duration:
+                print(client.voice_clients[0].is_playing())
+
+                while True:
                     await asyncio.sleep(1)
-                    sek_counter += 1
+                    print(client.voice_clients[0].is_playing())
+                    if not client.voice_clients[0].is_playing():
+                        break
+
                 print("done playing: ", bot_obj.queue[0])
                 await asyncio.sleep(0.5)
                 sek_counter = 0
@@ -78,10 +83,19 @@ async def play(ctx, file_name):
             bot_obj.is_playing = False
 
         else:
-            bot_obj.queue.append(file_name)
+            bot_obj.queue.append(filename)
 
-
-
+#used for the bot to download files sent to the bot
+@client.command(pass_context = True)
+async def download(ctx):
+    message = ctx.message
+    if not message.attachments == [] and ".mp3" in message.attachments[0].filename:
+        attachment = message.attachments[0]
+        print(attachment.filename, " ::: ", attachment.url)
+        file_name = attachment.filename
+        await attachment.save(path to here /audio_file)
+    else:
+        print("no file attached")
 
 @client.command(pass_context=True)
 async def exit(ctx):
