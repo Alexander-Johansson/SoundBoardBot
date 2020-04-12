@@ -8,8 +8,7 @@ import Token as Token #this is a separate file contaning the token
 
 
 client = commands.Bot(command_prefix = '+')
-bot_obj = None
-
+queue = []
 
 @client.event
 async def on_ready():
@@ -18,25 +17,18 @@ async def on_ready():
 #Connects to a server
 @client.command(pass_context=True)
 async def connect(ctx):
-    global bot_obj
+    connected = False
     if ctx.message.author.voice != None:
-        if bot_obj == None:
-            name = ctx.message.author
-            bot_obj = bc.Sbb(name)
-
-        channel = ctx.message.author.voice.channel
-        if not bot_obj.is_connected:
-            connected_to = await channel.connect()
-            bot_obj.is_connected = True
-            bot_obj.channel = connected_to
-            bot_obj.voice_channel = channel
-
-        elif channel != bot_obj.voice_channel:
-            await disconnect(ctx)
-            connected_to = await channel.connect()
-            bot_obj.channel = connected_to
-            bot_obj.voice_channel = channel
-            bot_obj.is_connected = True
+        voice = ctx.message.author.voice
+        channel = voice.channel
+        for i in client.voice_clients:
+            if i.is_connected:
+                connected = True
+                if not i.channel == channel:
+                    await i.move_to(channel)
+                    break
+        if not connected:
+            await channel.connect()
     else:
         print("no server to join")
 
@@ -44,46 +36,36 @@ async def connect(ctx):
 #Disconnects to a server
 @client.command(pass_context=True)
 async def disconnect(ctx):
-    global bot_obj
     await ctx.voice_client.disconnect()
-    bot_obj.is_connected = False
-    bot_obj.channel = None
 
 
 
 @client.command(pass_context=True)
 async def play(ctx, file_name):
-    global bot_obj
+    global queue
     filename = file_name + ".mp3"
     calling_user = ctx.message.author
     voice_channel = calling_user.voice.channel
     if voice_channel != None:
         await connect(ctx)
-        if not bot_obj.is_playing:
-            bot_obj.queue.append(filename)
-            bot_obj.is_playing = True
-
+        if not client.voice_clients[0].is_playing():
+            queue.append(filename)
             while (True):
-                bot_obj.channel.play(discord.FFmpegPCMAudio('./audio_files/' + bot_obj.queue[0]))
-                print(client.voice_clients[0].is_playing())
-
+                client.voice_clients[0].play(discord.FFmpegPCMAudio('./audio_files/' + queue[0]))
                 while True:
                     await asyncio.sleep(1)
-                    print(client.voice_clients[0].is_playing())
                     if not client.voice_clients[0].is_playing():
                         break
-
-                print("done playing: ", bot_obj.queue[0])
+                print("done playing: ", queue[0])
                 await asyncio.sleep(0.5)
                 sek_counter = 0
-                bot_obj.queue.pop(0)
-                if len(bot_obj.queue) == 0:
+                queue.pop(0)
+                if len(queue) == 0:
                     break
             print("nothing more to play")
-            bot_obj.is_playing = False
 
         else:
-            bot_obj.queue.append(filename)
+            queue.append(filename)
 
 #used for the bot to download files sent to the bot
 @client.command(pass_context = True)
@@ -93,14 +75,12 @@ async def download(ctx):
         attachment = message.attachments[0]
         print(attachment.filename, " ::: ", attachment.url)
         file_name = attachment.filename
-        await attachment.save(path to here /audio_file)
+        await attachment.save("path to /audio_files/  here" + file_name)
     else:
         print("no file attached")
 
 @client.command(pass_context=True)
 async def exit(ctx):
-    global bot_obj
-    bot_obj = None
     await client.close()
 
 
